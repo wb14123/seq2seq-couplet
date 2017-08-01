@@ -130,7 +130,7 @@ class Model():
                 if step % self.eval_step == 0:
                     bleu_score = self.eval(step)
                     print("Evaluate model. Step: %d, loss: %f, score: %f" % (
-                        step, bleu_score, loss / self.save_step))
+                        step, bleu_score, total_loss / self.save_step))
                     eval_summary = tf.Summary(value=[tf.Summary.Value(
                         tag='bleu', simple_value=bleu_score)])
                     self.log_writter.add_summary(eval_summary, step)
@@ -148,13 +148,11 @@ class Model():
                 in_seq_len = data['in_seq_len']
                 target_seq = data['target_seq']
                 target_seq_len = data['target_seq_len']
-                outputs, summary = self.eval_session.run(
-                        [self.eval_output, self.eval_summary],
+                outputs = self.eval_session.run(
+                        self.eval_output,
                         feed_dict={
                             self.eval_in_seq: in_seq,
                             self.eval_in_seq_len: in_seq_len})
-                if step == 0: # draw histogram summary once only
-                    self.log_writter.add_summary(summary, train_step)
                 for i in range(len(outputs)):
                     output = outputs[i]
                     target = target_seq[i]
