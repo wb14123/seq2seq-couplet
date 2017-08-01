@@ -63,6 +63,7 @@ def train_decoder(encoder_output, in_seq_len, target_seq, target_seq_len,
     batch_size = target_shape[0]
     max_timestep = target_shape[1]
     target_seq = tf.transpose(target_seq, perm=[1, 0, 2])
+    target_seq = tf.pad(target_seq, [[1, 0], [0, 0], [0, 0]], "CONSTANT")
     init_all_outputs = tf.TensorArray(dtype=target_seq.dtype,
             size=max_timestep, tensor_array_name='decoder_all_outputs')
     init_state = decoder_cell.zero_state(batch_size, tf.float32).clone(
