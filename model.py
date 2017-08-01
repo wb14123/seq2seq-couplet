@@ -162,7 +162,8 @@ class Model():
                             self.eval_reader.vocabs).split(' ')
                     if random.randint(1, 20) == 1:
                         print('====================')
-                        print(output_text, target_text)
+                        print(' '.join(output_text))
+                        print(' '.join(target_text))
                     bleu_score += bleu.compute_bleu([[output_text]], [target_text])[0] * 100
             return bleu_score / self.eval_reader.data_size / self.batch_size
 
