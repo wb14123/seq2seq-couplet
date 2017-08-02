@@ -36,12 +36,14 @@ def read_vocab(vocab_file):
 
 class SeqReader():
     def __init__(self, input_file, target_file, vocab_file, batch_size,
-            queue_size = 2048, worker_size = 2, end_token = '<end>', padding = True):
+            queue_size = 2048, worker_size = 2, end_token = '<end>',
+            padding = True, max_len = 100):
         self.input_file = input_file
         self.target_file = target_file
         self.end_token = end_token
         self.batch_size = batch_size
         self.padding = padding
+        self.max_len = max_len
         self.vocabs = read_vocab(vocab_file) + [end_token]
         self.vocab_indices = dict((c, i) for i, c in enumerate(self.vocabs))
         self.data_queue = Queue(queue_size)
@@ -89,8 +91,14 @@ class SeqReader():
                     i += 1
                     input_line = input_line.decode('utf-8')[:-1]
                     target_line = target_f.readline().decode('utf-8')[:-1]
-                    input_words = input_line.split(' ') + [self.end_token]
-                    target_words = target_line.split(' ') + [self.end_token]
+                    input_words = input_line.split(' ')
+                    if len(input_words) >= self.max_len:
+                        input_words = input_words[:self.max_len-1]
+                    input_words.append(self.end_token)
+                    target_words = target_line.split(' ')
+                    if len(target_words) >= self.max_len:
+                        target_words = target_words[:self.max_len-1]
+                    target_words.append(self.end_token)
                     in_seq = encode_text(input_words, self.vocab_indices)
                     target_seq = encode_text(target_words, self.vocab_indices)
                     batch['in_seq'].append(in_seq)
