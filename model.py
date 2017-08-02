@@ -160,7 +160,8 @@ class Model():
                             self.eval_reader.vocabs).split(' ')
                     target_text = reader.decode_text(target,
                             self.eval_reader.vocabs).split(' ')
-                    if random.randint(1, 20) == 1:
+                    prob = int(self.eval_reader.data_size * self.batch_size / 10)
+                    if random.randint(1, prob) == 1:
                         print('====================')
                         print(' '.join(output_text))
                         print(' '.join(target_text))
