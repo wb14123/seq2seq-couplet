@@ -129,7 +129,7 @@ class Model():
                     print(target_text)
                 if step % self.eval_step == 0:
                     bleu_score = self.eval(step)
-                    print("Evaluate model. Step: %d, loss: %f, score: %f" % (
+                    print("Evaluate model. Step: %d, score: %f, loss: %f" % (
                         step, bleu_score, total_loss / self.save_step))
                     eval_summary = tf.Summary(value=[tf.Summary.Value(
                         tag='bleu', simple_value=bleu_score)])
