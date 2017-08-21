@@ -92,14 +92,15 @@ class Model():
                 config=self.gpu_session_config())
 
 
-    def train(self, epochs):
+    def train(self, epochs, start=0):
         with self.train_graph.as_default():
             if path.isfile(self.model_file + '.meta') and self.restore_model:
                 print("Reloading model file before training.")
                 self.train_saver.restore(self.train_session, self.model_file)
-            self.train_session.run(self.train_init)
+            else:
+                self.train_session.run(self.train_init)
             total_loss = 0
-            for step in range(0, epochs):
+            for step in range(start, epochs):
                 data = next(self.train_data)
                 in_seq = data['in_seq']
                 in_seq_len = data['in_seq_len']
