@@ -61,8 +61,13 @@ class Model():
             self.train_output = tf.argmax(tf.nn.softmax(output), 2)
             self.loss = seq2seq.seq_loss(output, self.train_target_seq,
                     self.train_target_seq_len)
+            params = tf.trainable_variables()
+            gradients = tf.gradients(self.loss, params)
+            clipped_gradients, _ = tf.clip_by_global_norm(
+                        gradients, 0.5)
             self.train_op = tf.train.AdamOptimizer(
-                    learning_rate=self.learning_rate).minimize(self.loss)
+                    learning_rate=self.learning_rate
+                ).apply_gradients(zip(clipped_gradients,params))
             if self.param_histogram:
                 for v in tf.trainable_variables():
                     tf.summary.histogram('train_' + v.name, v)
@@ -143,6 +148,8 @@ class Model():
         with self.eval_graph.as_default():
             self.eval_saver.restore(self.eval_session, self.model_file)
             bleu_score = 0
+            target_results = []
+            output_results = []
             for step in range(0, self.eval_reader.data_size):
                 data = next(self.eval_data)
                 in_seq = data['in_seq']
@@ -159,13 +166,14 @@ class Model():
                     target = target_seq[i]
                     output_text = reader.decode_text(output,
                             self.eval_reader.vocabs).split(' ')
-                    target_text = reader.decode_text(target,
+                    target_text = reader.decode_text(target[1:],
                             self.eval_reader.vocabs).split(' ')
                     prob = int(self.eval_reader.data_size * self.batch_size / 10)
+                    target_results.append([target_text])
+                    output_results.append(output_text)
                     if random.randint(1, prob) == 1:
                         print('====================')
                         print(' '.join(output_text))
                         print(' '.join(target_text))
-                    bleu_score += bleu.compute_bleu([[output_text]], [target_text])[0] * 100
-            return bleu_score / self.eval_reader.data_size / self.batch_size
+            return bleu.compute_bleu(target_results, output_results)[0] * 100
 
