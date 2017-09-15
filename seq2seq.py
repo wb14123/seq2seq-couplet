@@ -37,10 +37,10 @@ def bi_encoder(embed_input, in_seq_len, num_units, layer_size, input_keep_prob):
 
 def attention_decoder_cell(encoder_output, in_seq_len, num_units, layer_size,
         input_keep_prob):
-    # attention_mechanim = tf.contrib.seq2seq.BahdanauAttention(num_units,
-    #         encoder_output, in_seq_len, normalize = True)
-    attention_mechanim = tf.contrib.seq2seq.LuongAttention(num_units,
-            encoder_output, in_seq_len, scale = True)
+    attention_mechanim = tf.contrib.seq2seq.BahdanauAttention(num_units,
+            encoder_output, in_seq_len, normalize = True)
+    # attention_mechanim = tf.contrib.seq2seq.LuongAttention(num_units,
+    #         encoder_output, in_seq_len, scale = True)
     cell = getLayeredCell(layer_size, num_units, input_keep_prob)
     cell = tf.contrib.seq2seq.AttentionWrapper(cell, attention_mechanim,
             attention_layer_size=num_units)
@@ -139,7 +139,7 @@ def infer_decoder(encoder_output, in_seq_len, encoder_state, num_units, layers,
     init_state = decoder_cell.zero_state(batch_size, tf.float32).clone(
             cell_state=encoder_state)
     helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
-            embedding, tf.fill([batch_size], 17047), 17046)
+            embedding, tf.fill([batch_size], 0), 1)
     decoder = tf.contrib.seq2seq.BasicDecoder(decoder_cell, helper,
             init_state, output_layer=projection_layer)
     outputs, _, _ = tf.contrib.seq2seq.dynamic_decode(decoder,
