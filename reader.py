@@ -70,35 +70,38 @@ class SeqReader():
     '''
 
 
+    def read_single_data(self):
+        if self.data_pos >= len(self.data):
+            random.shuffle(self.data)
+            self.data_pos = 0
+        result = self.data[self.data_pos]
+        self.data_pos += 1
+        return result
+
+
     def read(self):
         while True:
-            yield self.data[self.data_pos]
-            self.data_pos += 1
-            if self.data_pos >= len(self.data):
-                random.shuffle(self.data)
-                self.data_pos = 0
-
-
-    def _init_reader(self):
-        def init_batch():
-            return {'in_seq': [],
+            batch = {'in_seq': [],
                     'in_seq_len': [],
                     'target_seq': [],
                     'target_seq_len': []}
+            for i in range(0, self.batch_size):
+                item = self.read_single_data()
+                batch['in_seq'].append(item['in_seq'])
+                batch['in_seq_len'].append(item['in_seq_len'])
+                batch['target_seq'].append(item['target_seq'])
+                batch['target_seq_len'].append(item['target_seq_len'])
+            if self.padding:
+                batch['in_seq'] = padding_seq(batch['in_seq'])
+                batch['target_seq'] = padding_seq(batch['target_seq'])
+            yield batch
+
+
+    def _init_reader(self):
         self.data = []
-        i = 0
-        batch = init_batch()
         input_f = open(self.input_file, 'rb')
         target_f = open(self.target_file, 'rb')
         for input_line in input_f:
-            if i == self.batch_size:
-                if self.padding:
-                    batch['in_seq'] = padding_seq(batch['in_seq'])
-                    batch['target_seq'] = padding_seq(batch['target_seq'])
-                self.data.append(batch)
-                i = 0
-                batch = init_batch()
-            i += 1
             input_line = input_line.decode('utf-8')[:-1]
             target_line = target_f.readline().decode('utf-8')[:-1]
             input_words = input_line.split(' ')
@@ -112,12 +115,15 @@ class SeqReader():
             target_words.append(self.end_token)
             in_seq = encode_text(input_words, self.vocab_indices)
             target_seq = encode_text(target_words, self.vocab_indices)
-            batch['in_seq'].append(in_seq)
-            batch['in_seq_len'].append(len(in_seq))
-            batch['target_seq'].append(target_seq)
-            batch['target_seq_len'].append(len(target_seq)-1)
+            self.data.append({
+                'in_seq': in_seq,
+                'in_seq_len': len(in_seq),
+                'target_seq': target_seq,
+                'target_seq_len': len(target_seq) - 1
+            })
         input_f.close()
         target_f.close()
+        self.data_pos = len(self.data)
 
         '''
 
