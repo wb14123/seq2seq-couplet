@@ -8,6 +8,6 @@ m = Model(
         '/data/dl-data/couplet/test/out.txt',
         '/data/dl-data/couplet/vocabs',
         num_units=1024, layers=4, dropout=0.2,
-        batch_size=32, learning_rate=0.001, output_dir='./couplet')
-
-m.train(5000000)
+        batch_size=32, learning_rate=0.001,
+        output_dir='/data/dl-data/models/tf-lib/output_couplet',
+        restore_model=False)
