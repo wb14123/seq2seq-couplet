@@ -147,7 +147,8 @@ class Model():
                     output_text = reader.decode_text(output[sid],
                             self.train_reader.vocabs)
                     target_text = reader.decode_text(target_seq[sid],
-                            self.train_reader.vocabs)
+                            self.train_reader.vocabs).split(' ')[1:]
+                    target_text = ' '.join(target_text)
                     print('******************************')
                     print('src: ' + input_text)
                     print('output: ' + output_text)
