@@ -187,8 +187,9 @@ def seq2seq(in_seq, in_seq_len, target_seq, target_seq_len, vocab_size,
         helper = tf.contrib.seq2seq.TrainingHelper(
                     embed_target, target_seq_len, time_major=False)
     else:
+        # TODO: start tokens and end tokens are hard code
         helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
-                embedding, tf.fill([batch_size], 17047), 17046)
+                embedding, tf.fill([batch_size], 0), 1)
     decoder = tf.contrib.seq2seq.BasicDecoder(decoder_cell, helper,
             init_state, output_layer=projection_layer)
     outputs, _, _ = tf.contrib.seq2seq.dynamic_decode(decoder,
