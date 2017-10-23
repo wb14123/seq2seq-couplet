@@ -39,6 +39,7 @@ class Model():
 
         self._init_train()
         self._init_eval()
+        self._init_infer()
 
 
     def gpu_session_config(self):
@@ -97,6 +98,21 @@ class Model():
                 config=self.gpu_session_config())
 
 
+    def _init_infer(self):
+        self.infer_graph = tf.Graph()
+        with self.infer_graph.as_default():
+            self.infer_in_seq = tf.placeholder(tf.int32, shape=[1, None])
+            self.infer_in_seq_len = tf.placeholder(tf.int32, shape=[1])
+            self.infer_output = seq2seq.seq2seq(self.infer_in_seq,
+                    self.infer_in_seq_len, None, None,
+                    len(self.eval_reader.vocabs),
+                    self.num_units, self.layers, self.dropout)
+            self.infer_saver = tf.train.Saver()
+        self.infer_session = tf.Session(graph=self.infer_graph,
+                config=self.gpu_session_config())
+
+
+
     def train(self, epochs, start=0):
         with self.train_graph.as_default():
             if path.isfile(self.model_file + '.meta') and self.restore_model:
@@ -126,13 +142,16 @@ class Model():
                         total_loss / self.save_step))
                     # print sample output
                     sid = random.randint(0, self.batch_size-1)
+                    input_text = reader.decode_text(in_seq[sid],
+                        self.eval_reader.vocabs)
                     output_text = reader.decode_text(output[sid],
                             self.train_reader.vocabs)
                     target_text = reader.decode_text(target_seq[sid],
                             self.train_reader.vocabs)
                     print('******************************')
-                    print(output_text)
-                    print(target_text)
+                    print('src: ' + input_text)
+                    print('output: ' + output_text)
+                    print('target: ' + target_text)
                 if step % self.eval_step == 0:
                     bleu_score = self.eval(step)
                     print("Evaluate model. Step: %d, score: %f, loss: %f" % (
@@ -173,7 +192,24 @@ class Model():
                     output_results.append(output_text)
                     if random.randint(1, prob) == 1:
                         print('====================')
-                        print(' '.join(output_text))
-                        print(' '.join(target_text))
+                        input_text = reader.decode_text(in_seq[i],
+                                self.eval_reader.vocabs)
+                        print('src:' + input_text)
+                        print('output: ' + ' '.join(output_text))
+                        print('target: ' + ' '.join(target_text))
             return bleu.compute_bleu(target_results, output_results)[0] * 100
 
+
+    def infer(self, text):
+        with self.infer_graph.as_default():
+            self.infer_saver.restore(self.infer_session, self.model_file)
+            in_seq = reader.encode_text(text.split(' ') + ['</s>',],
+                    self.eval_reader.vocab_indices)
+            in_seq_len = len(in_seq)
+            outputs = self.infer_session.run(self.infer_output,
+                    feed_dict={
+                        self.infer_in_seq: [in_seq],
+                        self.infer_in_seq_len: [in_seq_len]})
+            output = outputs[0]
+            output_text = reader.decode_text(output, self.eval_reader.vocabs)
+            return output_text
