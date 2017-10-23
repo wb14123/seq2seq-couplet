@@ -152,7 +152,11 @@ def seq2seq(in_seq, in_seq_len, target_seq, target_seq_len, vocab_size,
         num_units, layers, dropout):
     in_shape = tf.shape(in_seq)
     batch_size = in_shape[0]
-    input_keep_prob = 1 - dropout
+
+    if target_seq != None:
+        input_keep_prob = 1 - dropout
+    else:
+        input_keep_prob = 1
 
 
     projection_layer=layers_core.Dense(vocab_size, use_bias=False)
