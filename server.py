@@ -2,20 +2,21 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS, cross_origin
 from model import Model
+from gevent.wsgi import WSGIServer
 
 app = Flask(__name__)
 CORS(app)
 
+vocab_file = '/data/dl-data/couplet/vocabs'
+model_dir = '/data/dl-data/models/tf-lib/output_couplet'
+
 m = Model(
-        '/data/dl-data/couplet/train/in.txt',
-        '/data/dl-data/couplet/train/out.txt',
-        '/data/dl-data/couplet/test/in.txt',
-        '/data/dl-data/couplet/test/out.txt',
-        '/data/dl-data/couplet/vocabs',
+        None, None, None, None, vocab_file,
         num_units=1024, layers=4, dropout=0.2,
         batch_size=32, learning_rate=0.0001,
-        output_dir='/data/dl-data/models/tf-lib/output_couplet',
+        output_dir=model_dir,
         restore_model=True, init_train=False, init_infer=True)
+
 
 @app.route('/chat/couplet/<in_str>')
 def chat_couplet(in_str):
@@ -25,3 +26,7 @@ def chat_couplet(in_str):
         output = m.infer(' '.join(in_str))
         output = ''.join(output.split(' '))
     return jsonify({'output': output})
+
+
+http_server = WSGIServer(('', 5000), app)
+http_server.serve_forever()
