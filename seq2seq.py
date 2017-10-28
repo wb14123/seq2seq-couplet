@@ -138,11 +138,25 @@ def infer_decoder(encoder_output, in_seq_len, encoder_state, num_units, layers,
     batch_size = tf.shape(in_seq_len)[0]
     init_state = decoder_cell.zero_state(batch_size, tf.float32).clone(
             cell_state=encoder_state)
+
     # TODO: start tokens and end tokens are hard code
+    """
     helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
             embedding, tf.fill([batch_size], 0), 1)
     decoder = tf.contrib.seq2seq.BasicDecoder(decoder_cell, helper,
             init_state, output_layer=projection_layer)
+    """
+
+    decoder = tf.contrib.seq2seq.BeamSearchDecoder(
+        cell=decoder_cell,
+        embedding=embedding,
+        start_tokens=tf.fill([batch_size], 0),
+        end_token=1,
+        initial_state=init_state,
+        beam_width=10,
+        output_layer=projection_layer,
+        length_penalty_weight=1.0)
+
     outputs, _, _ = tf.contrib.seq2seq.dynamic_decode(decoder,
             maximum_iterations=100)
     return outputs.sample_id
