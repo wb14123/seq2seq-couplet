@@ -4,14 +4,15 @@ from threading import Thread
 import random
 
 def padding_seq(seq):
+    results = []
     max_len = 0
     for s in seq:
         if max_len < len(s):
             max_len = len(s)
     for i in range(0, len(seq)):
         l = max_len - len(seq[i])
-        seq[i] += [0 for i in range(l)]
-    return seq
+        results.append(seq[i] + [0 for j in range(l)])
+    return results
 
 
 def encode_text(words, vocab_indices):
@@ -104,11 +105,11 @@ class SeqReader():
         for input_line in input_f:
             input_line = input_line.decode('utf-8')[:-1]
             target_line = target_f.readline().decode('utf-8')[:-1]
-            input_words = input_line.split(' ')
+            input_words = [x for x in input_line.split(' ') if x != '']
             if len(input_words) >= self.max_len:
                 input_words = input_words[:self.max_len-1]
             input_words.append(self.end_token)
-            target_words = target_line.split(' ')
+            target_words = [x for x in target_line.split(' ') if x != '']
             if len(target_words) >= self.max_len:
                 target_words = target_words[:self.max_len-1]
             target_words = ['<s>',] + target_words
