@@ -11,3 +11,5 @@ m = Model(
         batch_size=32, learning_rate=0.001,
         output_dir='/data/dl-data/models/tf-lib/output_couplet',
         restore_model=False)
+
+m.train(5000000)
