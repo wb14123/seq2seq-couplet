@@ -1,10 +1,13 @@
 
 import tensorflow as tf
+import numpy as np
 import seq2seq
 import bleu
 import reader
 from os import path
 import random
+
+from tensorflow.python.framework.errors_impl import InvalidArgumentError
 
 
 class Model():
@@ -12,9 +15,13 @@ class Model():
     def __init__(self, train_input_file, train_target_file,
             test_input_file, test_target_file, vocab_file,
             num_units, layers, dropout,
-            batch_size, learning_rate, output_dir,
+            batch_size, learning_rate,
+            repeat_weight,
+            cross_repeat_weight,
+            output_dir,
             save_step = 100, eval_step = 1000,
-            param_histogram=False, restore_model=False,
+            param_histogram=False,
+            restore_model=False,
             init_train=True, init_infer=False):
         self.num_units = num_units
         self.layers = layers
@@ -27,6 +34,12 @@ class Model():
         self.restore_model = restore_model
         self.init_train = init_train
         self.init_infer = init_infer
+        self.repeat_weight = repeat_weight
+        self.cross_repeat_weight = cross_repeat_weight
+
+        self.infer_vocabs = reader.read_vocab(vocab_file)
+        self.infer_vocab_indices = dict((c, i) for i, c in
+            enumerate(self.infer_vocabs))
 
         if init_train:
             self.train_reader = reader.SeqReader(train_input_file,
@@ -46,9 +59,6 @@ class Model():
             self._init_eval()
 
         if init_infer:
-            self.infer_vocabs = reader.read_vocab(vocab_file)
-            self.infer_vocab_indices = dict((c, i) for i, c in
-                    enumerate(self.infer_vocabs))
             self._init_infer()
             self.reload_infer_model()
 
@@ -71,8 +81,15 @@ class Model():
                     len(self.train_reader.vocabs),
                     self.num_units, self.layers, self.dropout)
             self.train_output = tf.argmax(tf.nn.softmax(output), 2)
-            self.loss = seq2seq.seq_loss(output, self.train_target_seq,
-                    self.train_target_seq_len)
+            losses = seq2seq.couplet_loss(output, self.train_target_seq,
+                    self.train_target_seq_len, self.train_in_seq,
+                    self.repeat_weight, self.cross_repeat_weight,
+                    self._get_ignore_vectors(['，', '、', ',', '？', '；', '。'])
+                    )
+            self.loss = losses[0]
+            self.base_loss = losses[1]
+            self.repeat_loss = losses[2]
+            self.cross_repeat_loss = losses[3]
             params = tf.trainable_variables()
             gradients = tf.gradients(self.loss, params)
             clipped_gradients, _ = tf.clip_by_global_norm(
@@ -84,6 +101,9 @@ class Model():
                 for v in tf.trainable_variables():
                     tf.summary.histogram('train_' + v.name, v)
             tf.summary.scalar('loss', self.loss)
+            tf.summary.scalar('baes_loss', self.base_loss)
+            tf.summary.scalar('repeat_loss', self.repeat_loss)
+            tf.summary.scalar('cross_repeat_loss', self.cross_repeat_loss)
             self.train_summary = tf.summary.merge_all()
             self.train_init = tf.global_variables_initializer()
             self.train_saver = tf.train.Saver()
@@ -96,13 +116,19 @@ class Model():
         with self.eval_graph.as_default():
             self.eval_in_seq = tf.placeholder(tf.int32, shape=[self.batch_size, None])
             self.eval_in_seq_len = tf.placeholder(tf.int32, shape=[self.batch_size])
+            self.eval_target_seq = tf.placeholder(tf.int32, shape=[self.batch_size, None])
+            self.eval_target_seq_len = tf.placeholder(tf.int32, shape=[self.batch_size])
             self.eval_output = seq2seq.seq2seq(self.eval_in_seq,
                     self.eval_in_seq_len, None, None,
                     len(self.eval_reader.vocabs),
                     self.num_units, self.layers, self.dropout)
+            # losses = seq2seq.couplet_loss(self.eval_output, self.eval_target_seq,
+            #         self.eval_target_seq_len, self.eval_in_seq,
+            #         self.repeat_weight, self.cross_repeat_weight)
             if self.param_histogram:
                 for v in tf.trainable_variables():
                     tf.summary.histogram('eval_' + v.name, v)
+            # tf.summary.scalar('eval_loss', losses[0])
             self.eval_summary = tf.summary.merge_all()
             self.eval_saver = tf.train.Saver()
         self.eval_session = tf.Session(graph=self.eval_graph,
@@ -124,6 +150,15 @@ class Model():
 
 
 
+    def _get_ignore_vectors(self, chars):
+        results = []
+        matrix = reader.encode_text(chars, self.infer_vocab_indices)
+        for vector in matrix:
+            v = tf.constant(vector)
+            results.append(v)
+        return results
+
+
     def train(self, epochs, start=0):
         if not self.init_train:
             raise Exception('Train graph is not inited!')
@@ -134,47 +169,77 @@ class Model():
             else:
                 self.train_session.run(self.train_init)
             total_loss = 0
+            error_times = 0
             for step in range(start, epochs):
-                data = next(self.train_data)
-                in_seq = data['in_seq']
-                in_seq_len = data['in_seq_len']
-                target_seq = data['target_seq']
-                target_seq_len = data['target_seq_len']
-                output, loss, train, summary = self.train_session.run(
-                        [self.train_output, self.loss, self.train_op, self.train_summary],
-                        feed_dict={
-                            self.train_in_seq: in_seq,
-                            self.train_in_seq_len: in_seq_len,
-                            self.train_target_seq: target_seq,
-                            self.train_target_seq_len: target_seq_len})
-                total_loss += loss
-                self.log_writter.add_summary(summary, step)
-                if step % self.save_step == 0:
-                    self.train_saver.save(self.train_session, self.model_file)
-                    print("Saving model. Step: %d, loss: %f" % (step,
-                        total_loss / self.save_step))
-                    # print sample output
-                    sid = random.randint(0, self.batch_size-1)
-                    input_text = reader.decode_text(in_seq[sid],
-                        self.eval_reader.vocabs)
-                    output_text = reader.decode_text(output[sid],
-                            self.train_reader.vocabs)
-                    target_text = reader.decode_text(target_seq[sid],
-                            self.train_reader.vocabs).split(' ')[1:]
-                    target_text = ' '.join(target_text)
-                    print('******************************')
-                    print('src: ' + input_text)
-                    print('output: ' + output_text)
-                    print('target: ' + target_text)
-                if step % self.eval_step == 0:
-                    bleu_score = self.eval(step)
-                    print("Evaluate model. Step: %d, score: %f, loss: %f" % (
-                        step, bleu_score, total_loss / self.save_step))
-                    eval_summary = tf.Summary(value=[tf.Summary.Value(
-                        tag='bleu', simple_value=bleu_score)])
-                    self.log_writter.add_summary(eval_summary, step)
-                if step % self.save_step == 0:
-                    total_loss = 0
+                try:
+                    data = next(self.train_data)
+                    in_seq = data['in_seq']
+                    in_seq_len = data['in_seq_len']
+                    target_seq = data['target_seq']
+                    target_seq_len = data['target_seq_len']
+                    output, loss, train, summary = self.train_session.run(
+                            [self.train_output, self.loss, self.train_op, self.train_summary],
+                            feed_dict={
+                                self.train_in_seq: in_seq,
+                                self.train_in_seq_len: in_seq_len,
+                                self.train_target_seq: target_seq,
+                                self.train_target_seq_len: target_seq_len})
+                    total_loss += loss
+                    self.log_writter.add_summary(summary, step)
+                    if step % self.save_step == 0:
+                        self.train_saver.save(self.train_session, self.model_file)
+                        print("Saving model. Step: %d, loss: %f" % (step,
+                            total_loss / self.save_step))
+                        # print sample output
+                        sid = random.randint(0, self.batch_size-1)
+                        input_text = reader.decode_text(in_seq[sid],
+                            self.eval_reader.vocabs)
+                        output_text = reader.decode_text(output[sid],
+                                self.train_reader.vocabs)
+                        target_text = reader.decode_text(target_seq[sid],
+                                self.train_reader.vocabs).split(' ')[1:]
+                        target_text = ' '.join(target_text)
+                        print('******************************')
+                        print('src: ' + input_text)
+                        print('output: ' + output_text)
+                        print('target: ' + target_text)
+                    if step % self.eval_step == 0:
+                        bleu_score = self.eval(step)
+                        print("Evaluate model. Step: %d, score: %f, loss: %f" % (
+                            step, bleu_score, total_loss / self.save_step))
+                        eval_summary = tf.Summary(value=[tf.Summary.Value(
+                            tag='bleu', simple_value=bleu_score)])
+                        self.log_writter.add_summary(eval_summary, step)
+                    if step % self.save_step == 0:
+                        total_loss = 0
+                except InvalidArgumentError as e:
+                    if "logits and labels must have the same" in e.message:
+                        error_times += 1
+                        if error_times > 3:
+                            raise e
+                        print()
+                        print("Softmax error")
+                        for sid in range(self.batch_size):
+                            input_text = reader.decode_text(in_seq[sid],
+                                self.eval_reader.vocabs)
+                            # output_text = reader.decode_text(output[sid],
+                            #         self.train_reader.vocabs)
+                            target_text = reader.decode_text(target_seq[sid],
+                                    self.train_reader.vocabs).split(' ')[1:]
+                            target_text = ' '.join(target_text)
+                            print('====== debug error ======')
+                            print(in_seq_len[sid])
+                            print(target_seq_len[sid])
+                            print(np.array(in_seq[sid]).shape)
+                            print(np.array(target_seq[sid]).shape)
+                            print(input_text)
+                            print(target_text)
+                            print(in_seq[sid])
+                            print(target_seq[sid])
+                        print(e)
+                    else:
+                        raise e
+
 
 
     def eval(self, train_step):
@@ -193,7 +258,9 @@ class Model():
                         self.eval_output,
                         feed_dict={
                             self.eval_in_seq: in_seq,
-                            self.eval_in_seq_len: in_seq_len})
+                            self.eval_in_seq_len: in_seq_len,
+                            self.eval_target_seq: target_seq,
+                            self.eval_target_seq_len: target_seq_len})
                 for i in range(len(outputs)):
                     output = outputs[i]
                     target = target_seq[i]

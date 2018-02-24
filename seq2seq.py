@@ -231,8 +231,18 @@ def seq2seq(in_seq, in_seq_len, target_seq, target_seq_len, vocab_size,
     """
 
 
+
+
+def mask_output(output, seq_len):
+    mask = tf.to_float(tf.sequence_mask(seq_len, tf.shape(output)[1]))
+    mask_ext = tf.expand_dims(tf.expand_dims(mask, -1), -1)
+    output_ext = tf.expand_dims(output, -1)
+    result = output_ext * mask_ext
+    return tf.reshape(result, tf.shape(output))
+
+
 def seq_loss(output, target, seq_len):
-    target = target[:, 1:]
+    target = target[:, 1:] # remove '<s>' at the first target word
     cost = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=output,
             labels=target)
     batch_size = tf.shape(target)[0]
@@ -240,3 +250,27 @@ def seq_loss(output, target, seq_len):
     cost = cost * tf.to_float(loss_mask)
     return tf.reduce_sum(cost) / tf.to_float(batch_size)
 
+
+def couplet_loss(output, target, seq_len, in_seq, repeat_weight,
+        cross_repeat_weight, cross_repate_ignores=[]):
+    cost1 = seq_loss(output, target, seq_len)
+    batch_size = tf.shape(target)[0]
+    in_seq_m = tf.one_hot(in_seq-1, tf.shape(output)[2])
+    target_repeat = tf.matmul(in_seq_m, tf.transpose(in_seq_m, perm=[0, 2, 1]))
+    o = mask_output(tf.nn.softmax(output), seq_len)
+    output_repeat = tf.matmul(o, tf.transpose(o, perm=[0, 2, 1]))
+    repeat_loss_m = tf.losses.mean_squared_error(target_repeat, output_repeat)
+    repeat_loss = tf.reduce_sum(repeat_loss_m) / tf.to_float(batch_size)
+
+    cross_in_seq = in_seq_m
+    for i in cross_repate_ignores:
+        i_m = tf.one_hot(i-1, tf.shape(output)[2])
+        corss_in_seq = tf.multiply(cross_in_seq, 1-i_m)
+    target_output_repeat = tf.matmul(cross_in_seq, tf.transpose(o, perm=[0, 2, 1]))
+    cross_repeat_loss = tf.reduce_sum(target_output_repeat) / tf.to_float(batch_size)
+
+    total = cost1 + repeat_weight * repeat_loss + cross_repeat_weight * cross_repeat_loss
+    return (total,
+            cost1,
+            repeat_weight*repeat_loss,
+            cross_repeat_weight*cross_repeat_loss)
