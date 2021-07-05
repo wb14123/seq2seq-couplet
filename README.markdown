@@ -34,6 +34,8 @@ I've trained the model on a Nivida GTX-1080 GPU for about 4 days.
 
 Open `server.py` and config the `vocab_file` and `model_dir` params. Then run `python server.py` will start a web service that can play couplet.
 
+Or build the Docker image with Dockerfile and run it with Docker. Remember to mount the correct model file paths into the Docker container.
+
 
 Examples
 -------------
