@@ -4,4 +4,4 @@ gevent==1.2.2
 greenlet==0.4.13
 numpy==1.14.2
 tensorboard==1.8.0
-tensorflow==1.8.0
+tensorflow==2.4.2
