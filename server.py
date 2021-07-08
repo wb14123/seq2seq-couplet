@@ -44,10 +44,12 @@ def chat_couplet(in_str):
     if len(in_str) == 0 or len(in_str) > 50:
         output = u'您的输入太长了'
     else:
-        output = m.infer(' '.join(in_str))
-        output = ''.join(output.split(' '))
-    logging.info('上联：%s；下联：%s' % (in_str, output))
-    return jsonify({'output': output})
+        result = {'text': []}
+        output, score = m.infer(' '.join(in_str))
+        score = score.tolist()
+    logging.info('上联：%s；下联：%s ; score: %s' % (
+        in_str, output, score))
+    return jsonify({'output': output, 'score': score})
 
 http_server = WSGIServer(('', 5000), app)
 http_server.serve_forever()

@@ -5,6 +5,7 @@ import bleu
 import reader
 from os import path
 import random
+import numpy as np
 
 
 class Model():
@@ -226,10 +227,12 @@ class Model():
             in_seq = reader.encode_text(text.split(' ') + ['</s>',],
                     self.infer_vocab_indices)
             in_seq_len = len(in_seq)
-            outputs = self.infer_session.run(self.infer_output,
+            (outputs, scores) = self.infer_session.run(self.infer_output,
                     feed_dict={
                         self.infer_in_seq: [in_seq],
                         self.infer_in_seq_len: [in_seq_len]})
             output = outputs[0]
-            output_text = reader.decode_text(output, self.infer_vocabs)
-            return output_text
+            score = np.average(scores[0].T, axis=1)
+            output_text = reader.decode_multi_text(output, self.infer_vocabs)
+            output_without_space = [''.join(s.split(' ')) for s in output_text]
+            return (output_without_space, score)

@@ -29,6 +29,20 @@ def decode_text(labels, vocabs, end_token = '</s>'):
     return ' '.join(results)
 
 
+def decode_multi_text(labels, vocabs, end_token = '</s>'):
+    all_results = []
+    (result_count, length) = labels.shape
+    for i in range(length):
+        results = []
+        for j in range(result_count):
+            word = vocabs[labels[j][i]]
+            if word == end_token:
+                all_results.append(' '.join(results))
+                break
+            results.append(word)
+    return all_results
+
+
 def read_vocab(vocab_file):
      f = open(vocab_file, 'rb')
      vocabs = [line.decode('utf8')[:-1] for line in f]

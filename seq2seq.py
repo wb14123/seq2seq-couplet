@@ -130,29 +130,48 @@ def seq2seq(in_seq, in_seq_len, target_seq, target_seq_len, vocab_size,
 
 
 
-    decoder_cell = attention_decoder_cell(encoder_output, in_seq_len, num_units,
-            layers, input_keep_prob)
     batch_size = tf.shape(in_seq_len)[0]
-    init_state = decoder_cell.zero_state(batch_size, tf.float32).clone(
+    if target_seq != None:
+        decoder_cell = attention_decoder_cell(encoder_output, in_seq_len, num_units,
+            layers, input_keep_prob)
+        init_state = decoder_cell.zero_state(batch_size, tf.float32).clone(
             cell_state=encoder_state)
 
-    if target_seq != None:
         embed_target = tf.nn.embedding_lookup(embedding, target_seq,
                 name='embed_target')
         helper = tf.contrib.seq2seq.TrainingHelper(
                     embed_target, target_seq_len, time_major=False)
+        decoder = tf.contrib.seq2seq.BasicDecoder(decoder_cell, helper,
+                init_state, output_layer=projection_layer)
     else:
         # TODO: start tokens and end tokens are hard code
-        helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
-                embedding, tf.fill([batch_size], 0), 1)
-    decoder = tf.contrib.seq2seq.BasicDecoder(decoder_cell, helper,
-            init_state, output_layer=projection_layer)
+        beam_width = 10
+        tiled_encoder_output = tf.contrib.seq2seq.tile_batch(
+                    encoder_output, multiplier=beam_width)
+        tiled_encoder_state = tf.contrib.seq2seq.tile_batch(
+                    encoder_state, multiplier=beam_width)
+        tiled_in_seq_len = tf.contrib.seq2seq.tile_batch(
+                    in_seq_len , multiplier=beam_width)
+        decoder_cell = attention_decoder_cell(tiled_encoder_output, tiled_in_seq_len, num_units,
+            layers, input_keep_prob)
+        init_state = decoder_cell.zero_state(batch_size * beam_width, tf.float32).clone(
+            cell_state=tiled_encoder_state)
+        decoder = tf.contrib.seq2seq.BeamSearchDecoder(
+                cell=decoder_cell,
+                embedding=embedding,
+                start_tokens=tf.fill([batch_size], 0),
+                end_token=1,
+                initial_state=init_state,
+                beam_width=beam_width,
+                output_layer=projection_layer,
+                length_penalty_weight=1.0)
     outputs, _, _ = tf.contrib.seq2seq.dynamic_decode(decoder,
             maximum_iterations=100)
     if target_seq != None:
         return outputs.rnn_output
     else:
-        return outputs.sample_id
+        return (outputs.predicted_ids,
+                outputs.beam_search_decoder_output.scores)
 
 
 def seq_loss(output, target, seq_len):
