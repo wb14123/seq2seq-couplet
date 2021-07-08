@@ -38,9 +38,21 @@ m = Model(
         output_dir=model_dir,
         restore_model=True, init_train=False, init_infer=True)
 
-
 @app.route('/chat/couplet/<in_str>')
 def chat_couplet(in_str):
+    if len(in_str) == 0 or len(in_str) > 50:
+        output = u'您的输入太长了'
+    else:
+        result = {'text': []}
+        output, score = m.infer(' '.join(in_str))
+        score = score.tolist()
+    logging.info('上联：%s；下联：%s ; score: %s' % (
+        in_str, output, score))
+    return jsonify({'output': output[0]})
+
+
+@app.route('/v0.2/couplet/<in_str>')
+def chat_couplet_v2(in_str):
     if len(in_str) == 0 or len(in_str) > 50:
         output = u'您的输入太长了'
     else:
