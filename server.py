@@ -38,6 +38,8 @@ m = Model(
         output_dir=model_dir,
         restore_model=True, init_train=False, init_infer=True)
 
+SPLIT_CHARS = ['，', '、', ',', '.', '。', '!', '！', '?', '？', ' ']
+
 def manual_correct_result(in_str, outputs, scores):
     for i in range(len(outputs)):
         output = outputs[i]
@@ -47,7 +49,9 @@ def manual_correct_result(in_str, outputs, scores):
             for k in range(j, length):
                 if (in_str[j] == in_str[k]) != (output[j] == output[k]):
                     scores[i] -= 1
-                if (in_str[j] == output[k]):
+        for j in range(length):
+            for k in range(length):
+                if output[k] not in SPLIT_CHARS and (in_str[j] == output[k]):
                     scores[i] -= 1
     return outputs, scores
 
