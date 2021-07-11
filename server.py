@@ -45,8 +45,23 @@ with open(CENSOR_WORDS_DICT) as censor_words_file:
     censor_words = [word[:-1] for word in censor_words_file.readlines()]
 logging.info("Loaded %s censor_words" % (len(censor_words)))
 
+
+def all_same(s):
+    if len(s) <= 1:
+        return True
+    for i in range(1, len(s)):
+        if s[i] != s[0]:
+            return False
+    return True
+
+
+
 def manual_correct_result(in_str, outputs, scores):
+    is_all_same = all_same(in_str)
     for i in range(len(outputs)):
+        if is_all_same:
+            scores[i] -= 100
+            continue
         output = outputs[i]
         scores[i] -= abs(len(in_str) - len(output))
         length = min(len(in_str), len(output))
@@ -54,6 +69,7 @@ def manual_correct_result(in_str, outputs, scores):
             if in_str.find(censor_word) >= 0 or output.find(censor_word) >= 0:
                 scores[i] -= 1000
                 break
+
         for j in range(length):
             for k in range(j, length):
                 if (in_str[j] == in_str[k]) != (output[j] == output[k]):
