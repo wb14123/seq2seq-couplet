@@ -39,12 +39,21 @@ m = Model(
         restore_model=True, init_train=False, init_infer=True)
 
 SPLIT_CHARS = ['，', '、', ',', '.', '。', '!', '！', '?', '？', ' ']
+CENSOR_WORDS_DICT = "/data/censor_words.txt"
+
+with open(CENSOR_WORDS_DICT) as censor_words_file:
+    censor_words = [word[:-1] for word in censor_words_file.readlines()]
+logging.info("Loaded %s censor_words" % (len(censor_words)))
 
 def manual_correct_result(in_str, outputs, scores):
     for i in range(len(outputs)):
         output = outputs[i]
         scores[i] -= abs(len(in_str) - len(output))
         length = min(len(in_str), len(output))
+        for censor_word in censor_words:
+            if in_str.find(censor_word) >= 0 or output.find(censor_word) >= 0:
+                scores[i] -= 1000
+                break
         for j in range(length):
             for k in range(j, length):
                 if (in_str[j] == in_str[k]) != (output[j] == output[k]):
@@ -53,6 +62,10 @@ def manual_correct_result(in_str, outputs, scores):
             for k in range(length):
                 if output[k] not in SPLIT_CHARS and (in_str[j] == output[k]):
                     scores[i] -= 1
+        if length > 0:
+            scores[i] = scores[i] - ((length ** -3) * 100)
+        else:
+            scores[i] = -100
     return outputs, scores
 
 
