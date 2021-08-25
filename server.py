@@ -50,7 +50,7 @@ def all_same(s):
     if len(s) <= 1:
         return True
     for i in range(1, len(s)):
-        if s[i] != s[0]:
+        if s[i] not in SPLIT_CHARS and s[i] != s[0]:
             return False
     return True
 
