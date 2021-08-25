@@ -73,11 +73,11 @@ def manual_correct_result(in_str, outputs, scores):
         for j in range(length):
             for k in range(j, length):
                 if (in_str[j] == in_str[k]) != (output[j] == output[k]):
-                    scores[i] -= 1
+                    scores[i] -= 10
         for j in range(length):
             for k in range(length):
                 if output[k] not in SPLIT_CHARS and (in_str[j] == output[k]):
-                    scores[i] -= 1
+                    scores[i] -= 10
         if length > 0:
             scores[i] = scores[i] - ((length ** -3) * 100)
         else:
