@@ -109,7 +109,7 @@ def seq2seq(in_seq, in_seq_len, target_seq, target_seq_len, vocab_size,
     in_shape = tf.shape(in_seq)
     batch_size = in_shape[0]
 
-    if target_seq != None:
+    if target_seq:
         input_keep_prob = 1 - dropout
     else:
         input_keep_prob = 1
@@ -131,7 +131,7 @@ def seq2seq(in_seq, in_seq_len, target_seq, target_seq_len, vocab_size,
 
 
     batch_size = tf.shape(in_seq_len)[0]
-    if target_seq != None:
+    if target_seq:
         decoder_cell = attention_decoder_cell(encoder_output, in_seq_len, num_units,
             layers, input_keep_prob)
         init_state = decoder_cell.zero_state(batch_size, tf.float32).clone(
@@ -167,7 +167,7 @@ def seq2seq(in_seq, in_seq_len, target_seq, target_seq_len, vocab_size,
                 length_penalty_weight=1.0)
     outputs, _, _ = tf.contrib.seq2seq.dynamic_decode(decoder,
             maximum_iterations=100)
-    if target_seq != None:
+    if target_seq:
         return outputs.rnn_output
     else:
         return (outputs.predicted_ids,
