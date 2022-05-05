@@ -1,3 +1,5 @@
+import sys
+
 from gevent import monkey
 monkey.patch_all()
 
@@ -7,6 +9,8 @@ from model import Model
 from gevent.wsgi import WSGIServer
 from logging.handlers import RotatingFileHandler
 import logging
+
+
 
 app = Flask(__name__)
 CORS(app)
@@ -31,19 +35,21 @@ def log_setup():
 
 log_setup()
 
+
+SPLIT_CHARS = ['，', '、', ',', '.', '。', '!', '！', '?', '？', ' ']
+CENSOR_WORDS_DICT = "/data/censor_words.txt"
+
+with open(CENSOR_WORDS_DICT, encoding='utf-8') as censor_words_file:
+    censor_words = [word[:-1] for word in censor_words_file.readlines()]
+logging.info("Loaded %s censor_words" % (len(censor_words)))
+
+
 m = Model(
         None, None, None, None, vocab_file,
         num_units=1024, layers=4, dropout=0.2,
         batch_size=32, learning_rate=0.0001,
         output_dir=model_dir,
         restore_model=True, init_train=False, init_infer=True)
-
-SPLIT_CHARS = ['，', '、', ',', '.', '。', '!', '！', '?', '？', ' ']
-CENSOR_WORDS_DICT = "/data/censor_words.txt"
-
-with open(CENSOR_WORDS_DICT) as censor_words_file:
-    censor_words = [word[:-1] for word in censor_words_file.readlines()]
-logging.info("Loaded %s censor_words" % (len(censor_words)))
 
 
 def all_same(s):
@@ -53,7 +59,6 @@ def all_same(s):
         if s[i] not in SPLIT_CHARS and s[i] != s[0]:
             return False
     return True
-
 
 
 def manual_correct_result(in_str, outputs, scores):
@@ -116,5 +121,6 @@ def chat_couplet_v2(in_str):
     return jsonify({'output': output, 'score': score})
 
 
+logging.info("Starting server ...")
 http_server = WSGIServer(('', 5000), app)
 http_server.serve_forever()

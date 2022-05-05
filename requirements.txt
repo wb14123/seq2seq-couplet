@@ -2,6 +2,6 @@ Flask==1.0.2
 Flask-Cors==3.0.9
 gevent==1.2.2
 greenlet==0.4.13
-numpy==1.14.2
-tensorboard==1.8.0
-tensorflow==1.8.0
+numpy
+tensorboard==1.15
+tensorflow-gpu==1.15
