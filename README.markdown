@@ -27,7 +27,7 @@ Open `couplet.py` and config the file locations and hyperparams. Then run `pytho
 
 If you stoped the training and want to continue to train it. You can set `restore_model` to `True` and use `m.train(<epoches>, start=<start>)`, which `start` is the steps you've already run.
 
-I've trained the model on a Nivida GTX-1080 GPU for about 4 days.
+I've trained the model on a Nvidia GTX-1080 GPU for about 4 days.
 
 
 ### Run the trained model
