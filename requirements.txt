@@ -4,4 +4,4 @@ gevent==1.2.2
 greenlet==0.4.13
 numpy
 tensorboard==1.15
-tensorflow-gpu==1.15
+tensorflow-gpu==2.6.4
