@@ -1,0 +1,12 @@
+FROM python:3.6-buster
+
+WORKDIR /usr/src/app
+
+COPY requirements-cpu.txt ./
+
+RUN pip install --no-cache-dir -r requirements-cpu.txt
+
+COPY . .
+
+CMD [ "python", "./server.py" ]
+
