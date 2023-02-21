@@ -1,23 +1,33 @@
+
+print("Program starting ...", flush=True)
+
 import sys
 
 from gevent import monkey
+
+print("Patching monkey ...", flush=True)
 monkey.patch_all()
 
+print("Importing library ...", flush=True)
 from flask import Flask, jsonify, request
 from flask_cors import CORS, cross_origin
-from model import Model
-from gevent.wsgi import WSGIServer
+from gevent.pywsgi import WSGIServer
 from logging.handlers import RotatingFileHandler
 import logging
 
+print("Importing model ...", flush=True)
+from model import Model
 
 
+print("Creating Flask app ...", flush=True)
 app = Flask(__name__)
 CORS(app)
 
 vocab_file = '/data/dl-data/couplet/vocabs'
 model_dir = '/data/dl-data/models/tf-lib/output_couplet_prod'
 
+
+print("Setting up logging ...", flush=True)
 
 def log_setup():
     log_handler = RotatingFileHandler(
@@ -39,6 +49,7 @@ log_setup()
 SPLIT_CHARS = ['，', '、', ',', '.', '。', '!', '！', '?', '？', ' ']
 CENSOR_WORDS_DICT = "/data/censor_words.txt"
 
+logging.info("Loading censor words...")
 with open(CENSOR_WORDS_DICT, encoding='utf-8') as censor_words_file:
     censor_words = [word[:-1] for word in censor_words_file.readlines()]
 logging.info("Loaded %s censor_words" % (len(censor_words)))
